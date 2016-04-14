@@ -1,6 +1,7 @@
 
 package hmod.domains.mkp;
 
+import java.io.PrintWriter;
 import optefx.util.output.OutputManager;
 
 /**
@@ -39,8 +40,10 @@ class MutableSolutionHandler implements SolutionHandler<MKPSolution>
                 OutputManager.println(MKPOutputIds.NEW_BEST_SOLUTION_INFO, "***********************\n\n" + bestSolution + "\n");
             }
             
-            if(providedSolution != null && providedSolution.sameAs(solution))
-                OutputManager.println(MKPOutputIds.WARNINGS, "Warning: provided solution wasn't modified!");
+            PrintWriter pw = OutputManager.getCurrent().getOutput(MKPOutputIds.WARNINGS);
+            
+            if(pw != null && providedSolution != null && providedSolution.sameAs(solution))
+                pw.println("Warning: provided solution wasn't modified!");
         }
     }
 

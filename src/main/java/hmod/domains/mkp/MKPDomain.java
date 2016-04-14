@@ -1,10 +1,11 @@
 
 package hmod.domains.mkp;
 
-import static hmod.core.FlowchartFactory.*;
+import static hmod.core.AlgorithmFactory.*;
 import hmod.core.PlaceholderStatement;
-import hmod.core.Statement;
-import hmod.solvers.common.MutableIterationHandler;
+import hmod.core.Procedure;
+import hmod.solvers.common.ForwardIteration;
+import java.util.function.BiFunction;
 import optefx.loader.ComponentRegister;
 import optefx.loader.LoadsComponent;
 import optefx.loader.ModuleLoadException;
@@ -19,7 +20,7 @@ import optefx.loader.Selector;
  */
 public final class MKPDomain
 {    
-    public static final class DefaultFillMethod extends SelectableValue<Statement> implements MKPFillMethod
+    public static final class DefaultFillMethod extends SelectableValue<Procedure> implements MKPFillMethod
     {
         private DefaultFillMethod()
         {
@@ -27,9 +28,9 @@ public final class MKPDomain
         }
     }
     
-    public static final class DefaultHeuristic extends SelectableValue<Statement> implements MKPHeuristic
+    public static final class DefaultRemoveMethod extends SelectableValue<Procedure> implements MKPRemoveMethod
     {
-        private DefaultHeuristic()
+        private DefaultRemoveMethod()
         {
             super(MKPDomain.class, (d) -> d.heuristics);
         }
@@ -37,14 +38,8 @@ public final class MKPDomain
     
     public static final DefaultFillMethod RANDOM_FILL = new DefaultFillMethod();
     public static final DefaultFillMethod GREEDY_FILL = new DefaultFillMethod();
-    
-    public static final DefaultHeuristic ADD_RANDOM = new DefaultHeuristic();
-    public static final DefaultHeuristic ADD_GREEDY = new DefaultHeuristic();
-    public static final DefaultHeuristic REMOVE_RANDOM = new DefaultHeuristic();
-    public static final DefaultHeuristic REMOVE_GREEDY = new DefaultHeuristic();
-    public static final DefaultHeuristic MULTI_REMOVE = new DefaultHeuristic();
-    public static final DefaultHeuristic MULTI_REMOVE_AND_RANDOM_FILL = new DefaultHeuristic();;
-    public static final DefaultHeuristic MULTI_REMOVE_AND_GREEDY_FILL = new DefaultHeuristic();
+    public static final DefaultRemoveMethod REMOVE_RANDOM = new DefaultRemoveMethod();
+    public static final DefaultRemoveMethod REMOVE_GREEDY = new DefaultRemoveMethod();
     
     public static final Parameter<MKPFillMethod> FILL_METHOD = new Parameter<>("MKPDomain.FILL_METHOD");  
     public static final Parameter<String> INSTANCE = new Parameter<>("MKPDomain.INSTANCE_FILE");
@@ -67,48 +62,31 @@ public final class MKPDomain
         pr.addBoundHandler(fm, (v) -> mkpDomain.fillMethod.set(v));
     }
     
-    private Statement initSolution;
-    private Statement loadSolution;
-    private Statement saveSolution;
-    private Statement reportSolution;
-    private final Selector<MKPFillMethod, Statement> fillMethods = new Selector<>();
-    private final Selector<MKPHeuristic, Statement> heuristics = new Selector<>();
-    private final PlaceholderStatement<Statement> fillMethod = new PlaceholderStatement<>();
+    private Procedure initSolution;
+    private Procedure loadSolution;
+    private Procedure saveSolution;
+    private Procedure reportSolution;
+    private MKPOperators mkpOps;
+    private SolutionBuilderHandler sbh;
+    private ProblemInstanceHandler pih;
+    private final Selector<MKPFillMethod, Procedure> fillMethods = new Selector<>();
+    private final Selector<MKPRemoveMethod, Procedure> heuristics = new Selector<>();
+    private final PlaceholderStatement<Procedure> fillMethod = new PlaceholderStatement<>();
 
-    public Statement initSolution() { return initSolution; }
-    public Statement loadSolution() { return loadSolution; }
-    public Statement saveSolution() { return saveSolution; }
-    public Statement reportSolution() { return reportSolution; }
-    public Statement fillMethod(DefaultFillMethod fm) { return fillMethods.get(fm); }
-    public Statement heuristic(DefaultHeuristic h) { return heuristics.get(h); }
+    public Procedure initSolution() { return initSolution; }
+    public Procedure loadSolution() { return loadSolution; }
+    public Procedure saveSolution() { return saveSolution; }
+    public Procedure reportSolution() { return reportSolution; }
+    public Procedure fillMethod(DefaultFillMethod fm) { return fillMethods.get(fm); }
+    public Procedure removeMethod(DefaultRemoveMethod h) { return heuristics.get(h); }
 
     private MKPDomain(ProblemInstanceHandler pih,
                       MutableSolutionHandler sh,
                       SolutionBuilderHandler sbh)
     {
-        MKPOperators mkpOps = new MKPOperators(sh, sbh);
-        
-        Statement randomFill = fillMethods.add(RANDOM_FILL, block(() -> {
-            ItemListHandler itemListHandler = new ItemListHandler(pih);
-            SelectedItemHandler selectedItemHandler = new SelectedItemHandler(pih);
-
-            return mkpOps.fillMethod(
-                itemListHandler, 
-                selectedItemHandler, 
-                MKPOperators.selectRandomItemInList(itemListHandler, selectedItemHandler)
-            );
-        }));
-        
-        Statement greedyFill = fillMethods.add(GREEDY_FILL, block(() -> {
-            ItemListHandler itemListHandler = new ItemListHandler(pih);
-            SelectedItemHandler selectedItemHandler = new SelectedItemHandler(pih);
-
-            return mkpOps.fillMethod(
-                itemListHandler, 
-                selectedItemHandler, 
-                MKPOperators.selectMostProfitableItemInList(itemListHandler, selectedItemHandler)
-            );
-        }));
+        this.mkpOps = new MKPOperators(sh, sbh);
+        this.sbh = sbh;
+        this.pih = pih;
         
         initSolution = block(
             If(NOT(sh::isSolutionProvided)).then(
@@ -126,7 +104,7 @@ public final class MKPDomain
         saveSolution = mkpOps::saveBuildedSolutionForRetrieving;
         reportSolution = mkpOps::reportSolution;
         
-        Statement removeRandom = heuristics.add(REMOVE_RANDOM, block(() -> {
+        heuristics.add(REMOVE_RANDOM, block(() -> {
             SelectedItemHandler sih = new SelectedItemHandler(pih);
 
             return block(
@@ -148,54 +126,39 @@ public final class MKPDomain
             );
         }));
         
-        Statement multiRemove = heuristics.add(MULTI_REMOVE, block(() -> {
-            MutableIterationHandler iterationHandler = new MutableIterationHandler();
+        fillMethods.add(RANDOM_FILL, fillMethod(MKPOperators::selectRandomItemInList));
+        fillMethods.add(GREEDY_FILL, fillMethod(MKPOperators::selectMostProfitableItemInList));
+    }
+    
+    public Procedure multiRemove(Procedure removeMethodBlock, double perc, boolean random)
+    {
+        return block(() -> {
+            ForwardIteration iterationHandler = new ForwardIteration();
 
             return block(
-                mkpOps.initRandomIteratorFromCurrentItems(iterationHandler),
-                While(NOT(iterationHandler::areIterationsFinished)).Do(
-                    removeRandom,
-                    iterationHandler::advanceIteration
+                mkpOps.initRandomIteratorFromCurrentItems(iterationHandler, perc, random),
+                While(NOT(iterationHandler::isFinished)).Do(removeMethodBlock,
+                    iterationHandler::advance
                 )
             );
-        }));
+        });
+    }
+    
+    public Procedure fillMethod(BiFunction<ItemListHandler, SelectedItemHandler, Procedure> selector)
+    {
+        ItemListHandler itemListHandler = new ItemListHandler(pih);
+        SelectedItemHandler selectedItemHandler = new SelectedItemHandler(pih);
         
-        heuristics.add(ADD_RANDOM, block(() -> {
-            SelectedItemHandler sih = new SelectedItemHandler(pih);
-
-            return block(
-                If(NOT(sbh::checkIfCanAdd)).then(
-                    heuristics.get(REMOVE_RANDOM)
+        return block(
+            itemListHandler::clear,
+            mkpOps.storeAvailableItemsInList(itemListHandler),
+            While(NOT(itemListHandler::isEmpty)).Do(
+                selector.apply(itemListHandler, selectedItemHandler),
+                If(mkpOps.checkFeasibleAdd(selectedItemHandler)).then(
+                    mkpOps.addSelectedItemToBuild(selectedItemHandler)
                 ),
-                sih::clear,                
-                mkpOps.selectRandomAvailableItemInBuild(sih),
-                mkpOps.addSelectedItemToBuild(sih)
-            );
-        }));
-        
-        heuristics.add(ADD_GREEDY, block(() -> {
-            SelectedItemHandler sih = new SelectedItemHandler(pih);
-            ItemListHandler ilh = new ItemListHandler(pih);
-
-            return block(
-                If(sbh::checkIfCanRemove).then(
-                    heuristics.get(REMOVE_RANDOM)
-                ),
-                sih::clear, ilh::clear,
-                mkpOps.storeAvailableItemsInList(ilh),
-                MKPOperators.selectMostProfitableItemInList(ilh, sih),
-                mkpOps.addSelectedItemToBuild(sih)
-            );
-        }));
-        
-        heuristics.add(MULTI_REMOVE_AND_RANDOM_FILL, block(
-            multiRemove,
-            randomFill
-        ));
-        
-        heuristics.add(MULTI_REMOVE_AND_GREEDY_FILL, block(
-            multiRemove,
-            greedyFill
-        ));
+                MKPOperators.removeSelectedItemFromList(selectedItemHandler, itemListHandler)
+            )
+        );
     }
 }

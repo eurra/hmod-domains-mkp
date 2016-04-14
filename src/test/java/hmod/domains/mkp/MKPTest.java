@@ -1,7 +1,7 @@
 package hmod.domains.mkp;
 
 
-import static hmod.core.FlowchartFactory.run;
+import static hmod.core.AlgorithmFactory.AlgorithmFactory;
 import java.io.IOException;
 import optefx.loader.Module;
 import optefx.loader.ModuleLoader;
@@ -41,19 +41,16 @@ public class MKPTest
             mkpDomain.initSolution(),
             mkpDomain.saveSolution(),
 
-            mkpDomain.heuristic(MKPDomain.ADD_RANDOM),
+            mkpDomain.multiRemove(mkpDomain.removeMethod(MKPDomain.REMOVE_GREEDY), 0.5, false),
             mkpDomain.saveSolution(),
-
-            mkpDomain.heuristic(MKPDomain.REMOVE_RANDOM),
+            
+            mkpDomain.fillMethod(MKPDomain.RANDOM_FILL),
             mkpDomain.saveSolution(),
-
-            mkpDomain.heuristic(MKPDomain.MULTI_REMOVE),
+            
+            mkpDomain.multiRemove(mkpDomain.removeMethod(MKPDomain.REMOVE_RANDOM), 0.5, false),
             mkpDomain.saveSolution(),
-
-            mkpDomain.heuristic(MKPDomain.MULTI_REMOVE_AND_RANDOM_FILL),
-            mkpDomain.saveSolution(),
-
-            mkpDomain.heuristic(MKPDomain.MULTI_REMOVE_AND_GREEDY_FILL),
+            
+            mkpDomain.fillMethod(MKPDomain.GREEDY_FILL),
             mkpDomain.saveSolution()
         );
     }

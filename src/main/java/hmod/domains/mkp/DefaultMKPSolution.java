@@ -33,7 +33,8 @@ class DefaultMKPSolution implements MKPSolution
     @Override
     public int getTotalProfit()
     {
-        return totalProfit - constraintViolation * 1000;
+        //return totalProfit - constraintViolation * 1000;
+        return totalProfit - constraintViolation;
     }
 
     @Override

@@ -14,6 +14,7 @@ public final class SolutionBuilderHandler implements MKPSolutionBuilder
     private final HashSet<Item> included;
     private final HashSet<Item> available;
     private int[] currResourceUsage;
+    private int maxProfit;
 
     SolutionBuilderHandler(MKPProblemInstance instance)
     {
@@ -24,8 +25,25 @@ public final class SolutionBuilderHandler implements MKPSolutionBuilder
         int itemsCount = instance.getItemsCount();
         included = new HashSet<>(itemsCount);
         available = new HashSet<>(itemsCount);
+        maxProfit = calculateMaxProfit();
         
         clear();
+    }
+    
+    private int calculateMaxProfit()
+    {
+        int itemsCount = instance.getItemsCount();
+        Item maxProfitItem = null;
+        
+        for(int i = 0; i < itemsCount; i++)
+        {
+            Item currItem = instance.getItem(i);
+            
+            if(maxProfitItem == null || maxProfitItem.getProfit() < currItem.getProfit())
+                maxProfitItem = currItem;
+        }
+        
+        return maxProfitItem.getProfit();
     }
     
     private void addWeight(Item item)
@@ -42,7 +60,19 @@ public final class SolutionBuilderHandler implements MKPSolutionBuilder
     
     private int getConstraintViolation(int[] resourceUsage)
     {
-        int constraintViolation = 0;
+        int overFilledCount = 0;
+        
+        for(int i = 0; i < resourceUsage.length; i++)
+        {
+            Resource res = instance.getResource(i);
+            
+            if(res.getCapacity() < resourceUsage[i])
+                overFilledCount++;
+        }
+        
+        return overFilledCount * included.size() * (maxProfit + 1);
+        
+        /*int constraintViolation = 0;
         
         for(int i = 0; i < resourceUsage.length; i++)
         {
@@ -52,7 +82,7 @@ public final class SolutionBuilderHandler implements MKPSolutionBuilder
                 constraintViolation += resourceUsage[i] - res.getCapacity();
         }
         
-        return constraintViolation;
+        return constraintViolation;*/
     }
 
     @Override
