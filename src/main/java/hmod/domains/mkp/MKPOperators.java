@@ -3,8 +3,9 @@ package hmod.domains.mkp;
 
 import hmod.core.AlgorithmException;
 import hmod.core.Condition;
-import hmod.core.Procedure;
-import hmod.solvers.common.ForwardIteration;
+import hmod.core.Statement;
+import hmod.solvers.common.IterationHandler;
+import hmod.solvers.common.MutableIterationHandler;
 import optefx.util.output.OutputManager;
 import optefx.util.random.RandomTool;
 
@@ -14,7 +15,7 @@ import optefx.util.random.RandomTool;
  */
 public final class MKPOperators
 {
-    public static Procedure selectRandomItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
+    public static Statement selectRandomItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             int count = itemListHandler.getItemCount();
@@ -23,7 +24,7 @@ public final class MKPOperators
         }; 
     }
     
-    public static Procedure selectMostProfitableItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
+    public static Statement selectMostProfitableItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             int itemCount = itemListHandler.getItemCount();
@@ -41,7 +42,7 @@ public final class MKPOperators
         };
     }
     
-    public static Procedure selectWorstProfitableItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
+    public static Statement selectWorstProfitableItemInList(ItemListHandler itemListHandler, SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             int itemCount = itemListHandler.getItemCount();
@@ -59,7 +60,7 @@ public final class MKPOperators
         };
     }
     
-    public static Procedure removeSelectedItemFromList(SelectedItemHandler selectedItemHandler, ItemListHandler itemListHandler)
+    public static Statement removeSelectedItemFromList(SelectedItemHandler selectedItemHandler, ItemListHandler itemListHandler)
     {
         return () -> {
             Item item = selectedItemHandler.getSelected();
@@ -91,7 +92,7 @@ public final class MKPOperators
         solutionBuilderHandler.importSolution(solution);
     }
     
-    public Procedure storeAvailableItemsInList(ItemListHandler itemListHandler)
+    public Statement storeAvailableItemsInList(ItemListHandler itemListHandler)
     {
         return () -> {
             Item[] itemsArray = solutionBuilderHandler.getAvailableItems();
@@ -104,7 +105,7 @@ public final class MKPOperators
         };
     }
     
-    public Procedure storeCurrentItemsInList(ItemListHandler itemListHandler)
+    public Statement storeCurrentItemsInList(ItemListHandler itemListHandler)
     {
         return () -> {
             Item[] itemsArray = solutionBuilderHandler.getIncludedItems();
@@ -114,7 +115,7 @@ public final class MKPOperators
         };
     }
     
-    public Procedure selectRandomAvailableItemInBuild(SelectedItemHandler selectedItemHandler) throws AlgorithmException
+    public Statement selectRandomAvailableItemInBuild(SelectedItemHandler selectedItemHandler) throws AlgorithmException
     {
         return () -> {
             Item[] available = solutionBuilderHandler.getAvailableItems();
@@ -127,7 +128,7 @@ public final class MKPOperators
         };
     }
     
-    public Procedure selectRandomIncludedItemInBuild(SelectedItemHandler selectedItemHandler)
+    public Statement selectRandomIncludedItemInBuild(SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             Item[] included = solutionBuilderHandler.getIncludedItems();
@@ -140,7 +141,7 @@ public final class MKPOperators
         };
     }
     
-    public Procedure addSelectedItemToBuild(SelectedItemHandler selectedItemHandler)
+    public Statement addSelectedItemToBuild(SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             Item selected = selectedItemHandler.getSelected();
@@ -148,7 +149,7 @@ public final class MKPOperators
         };
     }
     
-    public Procedure removeSelectedItemFromBuild(SelectedItemHandler selectedItemHandler)
+    public Statement removeSelectedItemFromBuild(SelectedItemHandler selectedItemHandler)
     {
         return () -> {
             Item toRemove = selectedItemHandler.getSelected();
@@ -156,7 +157,7 @@ public final class MKPOperators
         };  
     }
     
-    public Procedure initRandomIteratorFromCurrentItems(ForwardIteration iterationHandler, double removePerc, boolean random) throws AlgorithmException
+    public Statement initRandomIteratorFromCurrentItems(MutableIterationHandler iterationHandler, double removePerc, boolean random) throws AlgorithmException
     {
         return () -> {
             int currentCount = solutionBuilderHandler.getIncludedCount();

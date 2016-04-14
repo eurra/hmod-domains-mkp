@@ -1,10 +1,10 @@
 
 package hmod.domains.mkp;
 
-import static hmod.core.AlgorithmFactory.*;
+import static hmod.core.FlowchartFactory.*;
 import hmod.core.PlaceholderStatement;
-import hmod.core.Procedure;
-import hmod.solvers.common.ForwardIteration;
+import hmod.core.Statement;
+import hmod.solvers.common.MutableIterationHandler;
 import java.util.function.BiFunction;
 import optefx.loader.ComponentRegister;
 import optefx.loader.LoadsComponent;
@@ -20,7 +20,7 @@ import optefx.loader.Selector;
  */
 public final class MKPDomain
 {    
-    public static final class DefaultFillMethod extends SelectableValue<Procedure> implements MKPFillMethod
+    public static final class DefaultFillMethod extends SelectableValue<Statement> implements MKPFillMethod
     {
         private DefaultFillMethod()
         {
@@ -28,7 +28,7 @@ public final class MKPDomain
         }
     }
     
-    public static final class DefaultRemoveMethod extends SelectableValue<Procedure> implements MKPRemoveMethod
+    public static final class DefaultRemoveMethod extends SelectableValue<Statement> implements MKPRemoveMethod
     {
         private DefaultRemoveMethod()
         {
@@ -62,23 +62,23 @@ public final class MKPDomain
         pr.addBoundHandler(fm, (v) -> mkpDomain.fillMethod.set(v));
     }
     
-    private Procedure initSolution;
-    private Procedure loadSolution;
-    private Procedure saveSolution;
-    private Procedure reportSolution;
+    private Statement initSolution;
+    private Statement loadSolution;
+    private Statement saveSolution;
+    private Statement reportSolution;
     private MKPOperators mkpOps;
     private SolutionBuilderHandler sbh;
     private ProblemInstanceHandler pih;
-    private final Selector<MKPFillMethod, Procedure> fillMethods = new Selector<>();
-    private final Selector<MKPRemoveMethod, Procedure> heuristics = new Selector<>();
-    private final PlaceholderStatement<Procedure> fillMethod = new PlaceholderStatement<>();
+    private final Selector<MKPFillMethod, Statement> fillMethods = new Selector<>();
+    private final Selector<MKPRemoveMethod, Statement> heuristics = new Selector<>();
+    private final PlaceholderStatement<Statement> fillMethod = new PlaceholderStatement<>();
 
-    public Procedure initSolution() { return initSolution; }
-    public Procedure loadSolution() { return loadSolution; }
-    public Procedure saveSolution() { return saveSolution; }
-    public Procedure reportSolution() { return reportSolution; }
-    public Procedure fillMethod(DefaultFillMethod fm) { return fillMethods.get(fm); }
-    public Procedure removeMethod(DefaultRemoveMethod h) { return heuristics.get(h); }
+    public Statement initSolution() { return initSolution; }
+    public Statement loadSolution() { return loadSolution; }
+    public Statement saveSolution() { return saveSolution; }
+    public Statement reportSolution() { return reportSolution; }
+    public Statement fillMethod(DefaultFillMethod fm) { return fillMethods.get(fm); }
+    public Statement removeMethod(DefaultRemoveMethod h) { return heuristics.get(h); }
 
     private MKPDomain(ProblemInstanceHandler pih,
                       MutableSolutionHandler sh,
@@ -130,21 +130,22 @@ public final class MKPDomain
         fillMethods.add(GREEDY_FILL, fillMethod(MKPOperators::selectMostProfitableItemInList));
     }
     
-    public Procedure multiRemove(Procedure removeMethodBlock, double perc, boolean random)
+    public Statement multiRemove(Statement removeMethodBlock, double perc, boolean random)
     {
         return block(() -> {
-            ForwardIteration iterationHandler = new ForwardIteration();
+            MutableIterationHandler iterationHandler = new MutableIterationHandler();
 
             return block(
                 mkpOps.initRandomIteratorFromCurrentItems(iterationHandler, perc, random),
-                While(NOT(iterationHandler::isFinished)).Do(removeMethodBlock,
-                    iterationHandler::advance
+                While(NOT(iterationHandler::areIterationsFinished)).Do(
+                    removeMethodBlock,
+                    iterationHandler::advanceIteration
                 )
             );
         });
     }
     
-    public Procedure fillMethod(BiFunction<ItemListHandler, SelectedItemHandler, Procedure> selector)
+    public Statement fillMethod(BiFunction<ItemListHandler, SelectedItemHandler, Statement> selector)
     {
         ItemListHandler itemListHandler = new ItemListHandler(pih);
         SelectedItemHandler selectedItemHandler = new SelectedItemHandler(pih);

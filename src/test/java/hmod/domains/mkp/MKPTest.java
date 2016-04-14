@@ -1,7 +1,7 @@
 package hmod.domains.mkp;
 
 
-import static hmod.core.AlgorithmFactory.AlgorithmFactory;
+import static hmod.core.FlowchartFactory.run;
 import java.io.IOException;
 import optefx.loader.Module;
 import optefx.loader.ModuleLoader;
